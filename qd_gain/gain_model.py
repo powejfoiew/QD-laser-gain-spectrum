@@ -51,6 +51,70 @@ def gain_index(omega, rho_e_im, rho_hmat, params, index):
                          * (rho_e_im[1]+rho_hmat[1]-1)))
 
 
+def compute_occupation_probabilities(final_state, params=None, m_h_w=0.45):
+    """
+    Compute the per-QD-group electron occupation probabilities (GS/ES1/ES2)
+    and the (group-independent, lumped-reservoir) hole occupation
+    probabilities for a converged carrier state.
+
+    This is the same rho_e/rho_h calculation performed inside
+    compute_gain_spectrum, factored out here since some post-processing
+    (e.g. Pauli-blocking-factor fitting) only needs the occupation
+    probabilities, not a full gain spectrum swept over wavelength.
+    """
+    if params is None:
+        params = build_params()
+    params = dict(params)
+
+    G_i = params['G_i_by_level']
+    D_m = params['D_m']
+    E_h_m = params['E_h_m']
+
+    n_e_im_final = final_state['n_e_im']       # shape (n_m, N_groups)
+    n_hq_qd_final = final_state['n_hq_qd']
+
+    rho_e_im = n_e_im_final / (params['N_l'] * params['N_D'] * G_i * D_m)
+
+    EF_h_final = solve_hole_quasi_fermi_level(
+        n_hq_qd_final, params, m_h_w, kBT_window=15, ev_to_j=params['q'])
+    rho_h_m = fermi(E_h_m, EF_h_final, params['kBT'])
+
+    return {
+        'rho_e_im':  rho_e_im,      # shape (3, N_groups): GS/ES1/ES2 per QD group
+        'rho_h_gs':  rho_h_m[0],
+        'rho_h_es1': rho_h_m[1],
+        'rho_h_es2': rho_h_m[2],
+    }
+
+
+def compute_recombination_rates(final_state, params=None, m_h_w=0.45):
+    """
+    Compute the per-QD-group Auger and spontaneous-emission recombination
+    rates (GS/ES1/ES2) for a converged carrier state, using the same
+    occupation probabilities as compute_occupation_probabilities().
+    """
+    if params is None:
+        params = build_params()
+    params = dict(params)
+
+    n_e_im_final = final_state['n_e_im']       # shape (n_m, N_groups)
+    occ = compute_occupation_probabilities(final_state, params=params, m_h_w=m_h_w)
+    rho_e_im = occ['rho_e_im']
+
+    rho_h_mat = np.zeros((params['n_m'], params['N']))
+    rho_h_mat[0, :] = occ['rho_h_gs']
+    rho_h_mat[1, :] = occ['rho_h_es1']
+    rho_h_mat[2, :] = occ['rho_h_es2']
+
+    R_aug_im = n_e_im_final * rho_e_im * rho_h_mat / params['auger_lifetimes']
+    R_sp_im = n_e_im_final * rho_h_mat / params['sp_lifetimes']
+
+    return {
+        'R_aug_im': R_aug_im,   # shape (3, N_groups): GS/ES1/ES2 per QD group
+        'R_sp_im':  R_sp_im,
+    }
+
+
 def compute_gain_spectrum(final_state, len_omega=100, params=None,
                            wavelength_range_nm=None, m_h_w=0.45):
     """

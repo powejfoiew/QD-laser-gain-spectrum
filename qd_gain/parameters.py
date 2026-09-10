@@ -8,15 +8,7 @@ All values are in SI units unless noted.
 `delta_E_sch_w`, `delta_E_h_sch_w` and `delta_e_w_es2` (see build_params()) are
 not from the paper: G&R do not give the transport-energy offsets needed to
 reproduce their reported gain curve. They were hand-fit to keep the carrier
-rate equations numerically stable and lasing near the intended threshold
-(thesis section 4.2.1 / Appendix 7.3), rather than derived from theory.
-
-The original code mixed the exact elementary charge (`q` above) with an
-approximate literal (1.6e-19) at various points that convert between eV and
-Joules. All such conversions here use the exact `q`; this introduces a
-~0.01% shift relative to the original notebook's approximate-conversion
-code paths, accepted as negligible relative to the model's other
-uncertainties (see above).
+rate equations numerically stable and lasing near the intended threshold, rather than derived from theory.
 """
 
 import numpy as np
